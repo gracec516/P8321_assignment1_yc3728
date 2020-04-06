@@ -1,0 +1,105 @@
+---
+title: 'EHSC P8321: Homework #1 - Finding Data Sources'
+author: 'Grace Chao (UNI: yc3728)'
+date: 'Due: April 6, 2020 by 3:59 pm'
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+## Homework 1, Part 2: Build a hypothesis based on the following research question: What is the relationship between air pollution and socioeconomic status (defined as medium household income) in New York City? Pull, tidy, and save the appropriate datasets needed to answer this question. Comment out as much of your code as possible to explain what you are doing.
+
+My hypothesis: ...
+
+```{r setup, include = FALSE}
+# These are the default settings. We will keep them as is.
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse) 
+library(tidycensus)
+
+# working directory
+setwd("~/Desktop/HW 1")
+
+census_api_key("647afc44761c0d33913be07ed76de61a6e79b60d", overwrite = TRUE, install = TRUE)
+
+readRenviron("~/.Renviron")
+Sys.getenv("CENSUS_API_KEY")
+
+varlist = read.csv("ACS_varlist.csv")
+myvars = as.character(varlist$Variables)
+
+# obtain data and feature geometry from 2013-2017 American Community Survey on the first 10 variables in the ACS variable list
+for (v in 1:10){ #v=1
+  
+  if (v %% 10 == 0){print(v)}
+  
+acs_dt = get_acs(geography = "tract", 
+                 state = "NY", 
+                 variables = myvars[v], 
+                 geometry = FALSE, 
+                 year = 2017)
+
+assign(myvars[v], acs_dt)
+
+rm(acs_dt)
+
+}
+
+ls() # list objects
+rm(v, varlist) # remove object "v" and "varlist"
+head(get(myvars[2])) # return specified parts of the object
+names(get(myvars[2])) # get names of objects
+
+length(ls()) # returns length of the list
+
+# code a for loop to output only the GEOID and estimates of the first 10 variables on the ACS variable list
+for (v in 1:10) {
+  aa = get(myvars[v])
+  aa = aa[c("GEOID", "estimate")]
+  names(aa)[2] = myvars[v]
+  assign(myvars[v], aa)
+  rm(aa)
+}
+
+# storing into RData file to working directory
+save.image("~/Desktop/HW 1/census_dataset.RData")
+load("census_dataset.RData")
+
+# creating a dataframe to merge data from multiple variables by GEOID
+census = merge(get(myvars[1]), get(myvars[2]), by = "GEOID")
+
+# coding a for loop to merge data from all 10 ACS varaibles by GEOID
+for(v in 3:10) {
+  census = merge(census, get(myvars[v]), by = "GEOID")
+}
+
+dim(census) # retrieve the dimension of the census object
+head(census) # returns first 6 rows of the census objects
+summary(census) # produces result summaries of various model fitting functions
+
+# labeling variables to merged census dataframe
+names(census)[c(2:11)] = c("MedHhInc", "MedHVal", "FbPop", "TotPop", "TotPop_Race", "White", "Black", "American Indian", "Asian", "Hawaiian")
+
+#  NY's air quality data (2017) by county retrieved from EPA 
+aqi_ny2017 = read.csv("aqireport2017.csv")
+
+# Hint: What other packages will you need to load? From which data source can you obtain NYC air pollution data? From which data source can you obtain medium household income data?
+```
+
+
+## Create new dataframes in RStudio with the datasets you loaded. 
+```{r datasets}
+# Hint: newdatasetname = package %>% select(variable1, variable2,...)
+
+# creating a new dataframe
+aqi2017_nycounties = read.csv("aqireport2017.csv") %>%
+  select(AQI.Maximum, AQI.Median, AQI.90th.Percentile, X..Days.CO, X..Days.NO2, X..Days.O3, X..Days.SO2, X..Days.PM2.5, X..Days.PM10) %>%
+  distinct(AQI.Maximum, AQI.Median, AQI.90th.Percentile, X..Days.CO, X..Days.NO2, X..Days.O3, X..Days.SO2, X..Days.PM2.5, X..Days.PM10, .keep_all =  TRUE) %>%
+  drop_na()
+  
+```
+
+
+## Knit this R Markdown document to a Word document and submit on Courseworks (due April 6, 2020 by 3:59 pm).
